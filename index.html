@@ -137,6 +137,12 @@ td:first-child{text-align:left;opacity:.6}
       <div class="small">音画校准 <span id="offVal">0</span> ms — 调到"听到的鼓点"和"看到的压线"完全重合为止</div>
       <input type="range" id="offset" min="-120" max="120" step="5" value="0">
     </div>
+    <div class="card">
+      <div class="small">自动打歌 — 音符自己颗颗全中，用来放给别人看、先预览一遍谱面。刷新页面就回到手动</div>
+      <div class="seg" id="autoSeg" style="margin-top:10px">
+        <button data-a="0" class="on">手动</button><button data-a="1">自动</button>
+      </div>
+    </div>
     <button class="ghost close">知道了</button>
   </div>
 </div>
@@ -309,6 +315,8 @@ const down=new Map();   // pointerId -> {lane, hold}
 
 /* 音画补偿（毫秒），在设置里调；正数把画面往后推，用来抵蓝牙耳机的输出延迟（典型 150–250） */
 let OFFSET=0;
+/* 自动打歌：设置里开，音符自己全中。故意不进 localStorage——刷新就回到手动，免得下次自己开打时以为是坏了 */
+let AUTO=false;
 function now(){ return AC?AC.currentTime-songStart-OFFSET/1000:0; }
 function resetSong(){S.score=0;S.combo=0;S.maxCombo=0;S.hp=100;S.weight=0;pop=null;
   S.counts={marvelous:0,excellent:0,good:0,fair:0,miss:0};}
@@ -391,6 +399,8 @@ function release(id){
 function update(){
   if(S.state!=='play')return;
   const t=now();
+  /* 自动打歌：到点就判，永远 MARVELOUS；长条靠下面那条 done 分支自己收尾 */
+  if(AUTO)for(const n of S.notes)if(!n.judged&&t>=n.t)applyJudge(n,'marvelous');
   for(const n of S.notes){
     if(!n.judged&&t-n.t>W_FAIR)applyJudge(n,'miss');
     if(n.type==='hold'&&n.held&&!n.done&&t>=n.t+n.dur){
@@ -503,6 +513,8 @@ function draw(t){
     }
     ctx.textAlign='right';ctx.font='700 20px -apple-system,sans-serif';ctx.fillStyle='#fff';
     ctx.fillText(Math.round(S.score).toLocaleString(),PLAY_X+LANE_W*4,44);
+    if(AUTO){ctx.font='700 12px -apple-system,sans-serif';ctx.fillStyle='#7ff0a8';
+      ctx.fillText('AUTO · 自动',PLAY_X+LANE_W*4,62);}
     ctx.textAlign='left';
     /* 判定文字：最近一次判定在判定线上方浮一下 */
     if(pop){
@@ -585,7 +597,7 @@ function finish(){
   document.getElementById('cM').textContent=cleared?'cleared':'failed';
   document.getElementById('cH').textContent=Math.max(0,Math.round(S.hp))+'%';
   document.getElementById('cT').textContent=total;
-  document.getElementById('comment').textContent=COMMENT[g];
+  document.getElementById('comment').textContent=AUTO?'「自动演示 · 这一遍是机器打的。」':COMMENT[g];
   S.state='result';show('result');
   renderBar(acc,cleared);
 }
@@ -778,6 +790,8 @@ function renderCfg(){
   document.getElementById('spdVal').textContent=SPAWN.toFixed(2);
   document.getElementById('offset').value=OFFSET;
   document.getElementById('offVal').textContent=OFFSET;
+  document.querySelectorAll('#autoSeg button').forEach(b=>
+    b.classList.toggle('on',(b.dataset.a==='1')===AUTO));
 }
 function saveCfg(){try{
   localStorage.setItem('starbeat.spd3',JSON.stringify(spawnByDiff));
@@ -796,6 +810,9 @@ document.getElementById('speed').oninput=e=>{SPAWN=+e.target.value;spawnByDiff[S
   document.getElementById('spdVal').textContent=SPAWN.toFixed(2);saveCfg();};
 document.getElementById('offset').oninput=e=>{OFFSET=+e.target.value;
   document.getElementById('offVal').textContent=OFFSET;saveCfg();};
+document.querySelectorAll('#autoSeg button').forEach(b=>{
+  b.onclick=()=>{AUTO=b.dataset.a==='1';renderCfg();};
+});
 
 let paused=false;
 function doPause(on){
