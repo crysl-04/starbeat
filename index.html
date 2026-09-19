@@ -83,10 +83,6 @@ td:first-child{text-align:left;opacity:.6}
     <div class="small" style="opacity:.8">我的歌单 · 点一行切换当前歌曲</div>
     <div id="lib" class="lib"></div>
   </div>
-  <div class="card">
-    <div class="small">音画校准 <span id="offVal">0</span> ms — 打一会儿，调到"听到的鼓点"和"看到的压线"完全重合为止</div>
-    <input type="range" id="offset" min="-120" max="120" step="5" value="0">
-  </div>
   <!-- 故意不写 accept：iOS 会把扩展名缺失或类型认不出的文件整行置灰，微信里存出来的歌常常没有 .mp3 -->
   <input type="file" id="fAudio" hidden>
   <input type="file" id="fAva" accept="image/*" hidden>
@@ -114,13 +110,6 @@ td:first-child{text-align:left;opacity:.6}
 
 <div id="pause" class="screen hidden">
   <h2>暂停</h2>
-  <div class="card">
-    <div class="small">校准 <span id="offVal2">0</span> ms</div>
-    <div class="row">
-      <button class="ghost" id="minus">−10</button>
-      <button class="ghost" id="plus">+10</button>
-    </div>
-  </div>
   <button id="resume">继续</button>
   <button class="ghost" id="quit">放弃本曲</button>
 </div>
@@ -276,13 +265,15 @@ function autoChart(buffer,diff){
 
 /* ================= 游戏状态 ================= */
 const S={state:'menu',song:null,base:null,notes:[],score:0,combo:0,maxCombo:0,
-  hp:100,counts:{marvelous:0,excellent:0,good:0,miss:0},weight:0,offset:0,diff:1};
+  hp:100,counts:{marvelous:0,excellent:0,good:0,miss:0},weight:0,diff:1};
 let songStart=0,schedIdx=0,schedTimer=0,srcNode=null,activeSrc=[];
 const laneFlash=[0,0,0,0];
 let pop=null;           // 最近一次判定，纯视觉反馈
 const down=new Map();   // pointerId -> {lane, hold}
 
-function now(){ return AC?AC.currentTime-songStart-S.offset/1000:0; }
+/* 音画补偿（毫秒），玩家不能调；正数把画面往后推，用来抵蓝牙耳机的输出延迟（典型 150–250） */
+const OFFSET=0;
+function now(){ return AC?AC.currentTime-songStart-OFFSET/1000:0; }
 function resetSong(){S.score=0;S.combo=0;S.maxCombo=0;S.hp=100;S.weight=0;pop=null;
   S.counts={marvelous:0,excellent:0,good:0,miss:0};}
 
@@ -699,17 +690,10 @@ document.getElementById('back').onclick=()=>{stopSong();S.state='menu';show('men
 document.getElementById('quit').onclick=()=>{stopSong();S.state='menu';show('menu');};
 document.getElementById('resume').onclick=()=>doPause(false);
 document.getElementById('pbtn').onclick=()=>doPause(true);
-document.getElementById('minus').onclick=()=>setOff(S.offset-10);
-document.getElementById('plus').onclick=()=>setOff(S.offset+10);
 document.querySelectorAll('#diff button').forEach(b=>{
   b.onclick=()=>{document.querySelectorAll('#diff button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');S.diff=+b.dataset.d;SPAWN=SPAWN_BY_DIFF[S.diff];};
 });
-function setOff(v){S.offset=Math.max(-200,Math.min(200,v));
-  document.getElementById('offset').value=S.offset;
-  document.getElementById('offVal').textContent=S.offset;
-  document.getElementById('offVal2').textContent=S.offset;}
-document.getElementById('offset').oninput=e=>setOff(+e.target.value);
 
 let paused=false;
 function doPause(on){
