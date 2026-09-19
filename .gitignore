@@ -1,4 +1,4 @@
-# 默认什么都不公开。放行的只有引擎本身 + 内置曲（音频和三难度谱面）
+# 默认什么都不公开。放行的只有引擎本身 + 内置曲（音频和三难度谱面）+ 内置明星照
 # 你自己导入的歌、额外的 chart json、make_chart.py / make_builtin.py 都留在本地
 *
 !index.html
@@ -6,3 +6,4 @@
 !builtin/
 !builtin/charts.json
 !builtin/track.m4a
+!builtin/star.jpg

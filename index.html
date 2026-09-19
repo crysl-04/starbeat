@@ -424,6 +424,11 @@ function defaultAvatar(){
     g[i?'lineTo':'moveTo'](128+Math.cos(a)*r,128+Math.sin(a)*r);}
   g.closePath();g.fill();
   avatar=c;
+  /* 内置明星照：加载成功就顶掉那颗渐变星，失败（离线/文件被删）就留星，不留白。
+     本机换过明星时不抢——这条 onload 是异步的，晚于下面那行恢复存档就会把她的照片盖掉 */
+  const im=new Image();
+  im.onload=()=>{try{if(localStorage.getItem('starbeat.ava'))return;}catch(x){}avatar=im;};
+  im.src='builtin/star.jpg';
 }
 function noteY(n,t){return HIT_Y-(n.t-t)/SPAWN*TRAVEL;}
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
@@ -457,7 +462,12 @@ function draw(t){
   ctx.shadowColor='rgba(127,240,168,'+(.2+Math.min(S.combo,80)/80*.5)+')';
   ctx.shadowBlur=26+Math.min(S.combo,80)*1.1;
   ctx.globalAlpha=.2+.56*Math.min(S.combo,80)/80;
-  if(avatar)ctx.drawImage(avatar,-size/2,-size/2,size,size);
+  if(avatar){
+    const aw=avatar.naturalWidth||avatar.width, ah=avatar.naturalHeight||avatar.height;
+    /* 方图（用户照片）还是 size×size；横图按高度撑满、只挡宽度上限，七个人的合影才看得清 */
+    const k=aw>ah?Math.min(size/ah,W*.86/aw):Math.min(size/aw,size/ah);
+    ctx.drawImage(avatar,-aw*k/2,-ah*k/2,aw*k,ah*k);
+  }
   ctx.restore();
   /* 判定线 */
   const lg=ctx.createLinearGradient(PLAY_X,0,PLAY_X+LANE_W*4,0);
