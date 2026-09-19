@@ -89,7 +89,8 @@ td:first-child{text-align:left;opacity:.6}
   </div>
   <div class="row file">🎵 <b id="songName">内置原创曲 NEON DRIVE</b> <button class="ghost" id="pickAudio">加歌</button></div>
   <div class="row file">🌟 <b id="avaName">内置形象</b> <button class="ghost" id="pickAva">换明星</button></div>
-  <div class="row file">📜 <b id="chartName">谱面挂在选中的歌上</b> <button class="ghost" id="pickChart">导入谱面</button></div>
+  <!-- 开发入口：默认隐藏，URL 带 ?dev 才显示（导入谱面只有电脑侧打谱时用得上） -->
+  <div class="row file hidden" id="chartRow">📜 <b id="chartName">谱面挂在选中的歌上</b> <button class="ghost" id="pickChart">导入谱面</button></div>
   <div class="card">
     <div class="small" style="opacity:.8">我的歌单 · 点一行切换当前歌曲</div>
     <div id="lib" class="lib"></div>
@@ -118,7 +119,7 @@ td:first-child{text-align:left;opacity:.6}
     </div>
     <div class="sep"></div>
     <div class="small" style="font-size:14px;line-height:1.9">
-      「加歌」选一首手机里的音乐（mp3 / m4a / wav 都行），它会永久存在这台设备上，下次打开还在；不导谱面就用浏览器简易谱。「换明星」选一张照片，它会站在判定线上方跟着你的连击发光。<br><br>
+      「加歌」选一首手机里的音乐（mp3 / m4a / wav 都行），它会永久存在这台设备上，下次打开还在，开打时音符按鼓点自动排好。「换明星」选一张照片，它会站在判定线上方跟着你的连击发光。<br><br>
       Safari 请从分享菜单「添加到主屏幕」打开：普通标签页放 7 天不用，系统会把歌单清掉。
     </div>
     <button class="ghost close">知道了</button>
@@ -858,6 +859,7 @@ document.getElementById('fAva').onchange=e=>{
 };
 
 /* 导入谱面：按 difficulty 落到当前选中歌曲的对应槽位，连导三次凑齐三难度 */
+if(/[?&]dev/.test(location.search))document.getElementById('chartRow').classList.remove('hidden');
 document.getElementById('pickChart').onclick=()=>document.getElementById('fChart').click();
 document.getElementById('fChart').onchange=async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
