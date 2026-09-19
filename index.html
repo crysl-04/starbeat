@@ -74,8 +74,8 @@ td:first-child{text-align:left;opacity:.6}
     <div id="lib" class="lib"></div>
   </div>
   <div class="card">
-    <div class="small">音符下落时间 <span id="spdVal">1.15</span> 秒 — 觉得太快就往右调大</div>
-    <input type="range" id="speed" min="0.7" max="1.8" step="0.05" value="1.15">
+    <div class="small">音符下落时间 <span id="spdVal">2.00</span> 秒 — 觉得太快就往右调大</div>
+    <input type="range" id="speed" min="1" max="3.5" step="0.1" value="2">
   </div>
   <div class="card">
     <div class="small">音画校准 <span id="offVal">0</span> ms — 打一会儿，调到"听到的鼓点"和"看到的压线"完全重合为止</div>
@@ -132,7 +132,7 @@ td:first-child{text-align:left;opacity:.6}
 /* ================= 画布与布局 ================= */
 const cvs=document.getElementById('game'), ctx=cvs.getContext('2d');
 let W=0,H=0,DPR=1,LANE_W=0,PLAY_X=0,HIT_Y=0,TRAVEL=0;
-let SPAWN=1.15;         // 音符从 HUD 下沿滑到判定线的时间（秒），可在主菜单调
+let SPAWN=2;           // 音符从 HUD 下沿滑到判定线的时间（秒），可在主菜单调
 const LANE_COL=['#7ff0a8','#3fd8c2','#5fc0ff','#9db4ff'];
 const KEY_LANE={d:0,f:1,j:2,k:3};
 function layout(){
@@ -641,11 +641,11 @@ function setOff(v){S.offset=Math.max(-200,Math.min(200,v));
   document.getElementById('offVal').textContent=S.offset;
   document.getElementById('offVal2').textContent=S.offset;}
 document.getElementById('offset').oninput=e=>setOff(+e.target.value);
-function setSpeed(v){SPAWN=Math.max(.5,Math.min(2.4,v));
+function setSpeed(v){SPAWN=Math.max(1,Math.min(3.5,v));
   document.getElementById('speed').value=SPAWN;
   document.getElementById('spdVal').textContent=SPAWN.toFixed(2);}
 document.getElementById('speed').oninput=e=>{setSpeed(+e.target.value);
-  try{localStorage.setItem('starbeat.spd',String(SPAWN));}catch(x){}};
+  try{localStorage.setItem('starbeat.spd2',String(SPAWN));}catch(x){}};
 
 let paused=false;
 function doPause(on){
@@ -739,7 +739,8 @@ document.getElementById('fChart').onchange=async e=>{
 resize();addEventListener('resize',resize);addEventListener('orientationchange',()=>setTimeout(resize,200));
 defaultAvatar();
 libInit();
-try{const sp=localStorage.getItem('starbeat.spd');if(sp)setSpeed(+sp);}catch(e){}
+/* 换键名是故意的：旧 starbeat.spd 里可能存着调快时代的 1.15，会盖掉新的默认速度 */
+try{const sp=localStorage.getItem('starbeat.spd2');if(sp)setSpeed(+sp);}catch(e){}
 try{const saved=localStorage.getItem('starbeat.ava');
   if(saved){const im=new Image();im.onload=()=>{avatar=im;document.getElementById('avaName').textContent='你的明星 ✓';};im.src=saved;}
 }catch(e){}
