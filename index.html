@@ -31,6 +31,14 @@ button.ghost{background:#ffffff16;font-weight:500;font-size:15px;padding:11px 20
 .stat{font-size:14px;opacity:.75;line-height:2}
 .file{font-size:14px;padding:12px 16px;border-radius:12px;background:#ffffff10;display:flex;gap:10px;align-items:center}
 .file b{color:#7afcff;font-weight:600}
+#menu{justify-content:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-top:26px}
+.lib{display:flex;flex-direction:column;gap:6px;width:100%;max-width:340px}
+.li{display:flex;align-items:center;gap:9px;padding:11px 13px;border-radius:12px;background:#ffffff0d;
+  border:1px solid transparent;font-size:14px;text-align:left;cursor:pointer}
+.li.on{background:#ffffff20;border-color:#7afcff55}
+.li b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:168px}
+.li .tag{font-size:11px;opacity:.5;flex:1}
+.li .x{background:#ffffff14;color:#fff;font-size:12px;font-weight:500;padding:6px 11px;border-radius:9px}
 input[type=range]{width:200px;vertical-align:middle}
 .card{display:flex;flex-direction:column;gap:6px;align-items:center}
 .big{font-size:64px;font-weight:800;line-height:1;background:linear-gradient(180deg,#fff,#9d8bd8);
@@ -58,9 +66,13 @@ td:first-child{text-align:left;opacity:.6}
       <button class="ghost" id="howto">怎么玩</button>
     </div>
   </div>
-  <div class="row file">🎵 <b id="songName">内置原创曲 NEON DRIVE</b> <button class="ghost" id="pickAudio">换歌</button></div>
+  <div class="row file">🎵 <b id="songName">内置原创曲 NEON DRIVE</b> <button class="ghost" id="pickAudio">加歌</button></div>
   <div class="row file">🌟 <b id="avaName">内置形象</b> <button class="ghost" id="pickAva">换明星</button></div>
-  <div class="row file">📜 <b id="chartName">浏览器自动生成谱面</b> <button class="ghost" id="pickChart">导入谱面</button></div>
+  <div class="row file">📜 <b id="chartName">谱面挂在选中的歌上</b> <button class="ghost" id="pickChart">导入谱面</button></div>
+  <div class="card">
+    <div class="small" style="opacity:.8">我的歌单 · 点一行切换当前歌曲</div>
+    <div id="lib" class="lib"></div>
+  </div>
   <div class="card">
     <div class="small">音符下落时间 <span id="spdVal">1.15</span> 秒 — 觉得太快就往右调大</div>
     <input type="range" id="speed" min="0.7" max="1.8" step="0.05" value="1.15">
@@ -72,7 +84,7 @@ td:first-child{text-align:left;opacity:.6}
   <input type="file" id="fAudio" accept="audio/*" hidden>
   <input type="file" id="fAva" accept="image/*" hidden>
   <input type="file" id="fChart" accept=".json,application/json" hidden>
-  <div class="small">「换歌」选一首手机里的音乐，会自动生成谱面；「导入谱面」用电脑上 make_chart.py 生成的 chart.json（此时难度滑条不再生效）；「换明星」选一张照片，它会站在判定线上方跟着你的连击发光。</div>
+  <div class="small">「加歌」选一首手机里的音乐（mp3 / m4a / wav 都行），它会永久存在这台设备上，下次打开还在；不导谱面就用浏览器简易谱。「导入谱面」用电脑上 make_chart.py 生成的 json，会挂到你当前选中的那首歌上，Easy / Normal / Hard 各导一次就凑齐三档。「换明星」选一张照片，它会站在判定线上方跟着你的连击发光。<br><br>Safari 请从分享菜单「添加到主屏幕」打开：普通标签页放 7 天不用，系统会把歌单清掉。</div>
 </div>
 
 <div id="help" class="screen hidden">
@@ -492,6 +504,78 @@ function show(name){
 }
 function laneFromX(x){const i=Math.floor((x-PLAY_X)/LANE_W);return i<0||i>3?-1:i;}
 
+/* ================= 本机歌单：音频和谱面都存在这台设备里 ================= */
+const LIB_STORE='songs';
+let LIB=[], selId=null, DECODED=new Map();
+function idb(){return new Promise(res=>{
+  const r=indexedDB.open('starbeat',1);
+  r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(LIB_STORE))
+    r.result.createObjectStore(LIB_STORE,{keyPath:'id'});};
+  r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);});}
+async function dbRun(mode,fn){const db=await idb();if(!db)throw new Error('idb');
+  return new Promise((res,rej)=>{const t=db.transaction(LIB_STORE,mode),q=fn(t.objectStore(LIB_STORE));
+    q.onsuccess=()=>res(q.result);t.onerror=()=>rej(t.error);});}
+const dbAll=()=>dbRun('readonly',s=>s.getAll());
+const dbPut=r=>dbRun('readwrite',s=>s.put(r));
+const dbDel=id=>dbRun('readwrite',s=>s.delete(id));
+async function fitsSpace(bytes){
+  try{const e=await navigator.storage.estimate();
+    if(e.quota&&e.usage+bytes>e.quota*.85)return false;}catch(x){}
+  return true;}
+/* AudioBuffer 是解码后的 PCM，一首四分钟歌约 100MB，所以只留最近两首，其余每次现解 */
+async function ensureDecoded(rec){
+  if(DECODED.has(rec.id))return DECODED.get(rec.id);
+  await ensureAudio();
+  const buf=await AC.decodeAudioData(await rec.blob.arrayBuffer());
+  DECODED.set(rec.id,buf);
+  for(const k of DECODED.keys())if(DECODED.size>2&&k!==rec.id)DECODED.delete(k);
+  return buf;}
+function chartOf(rec,d){const c=rec.charts||{};return c[''+d]||c['1']||c['0']||c['2']||null;}
+function builtinTitle(){return BUILTIN?BUILTIN.title:'原创曲 NEON DRIVE';}
+function rememberSel(){try{localStorage.setItem('starbeat.sel',selId||'');}catch(x){}}
+function renderLib(){
+  const box=document.getElementById('lib');if(!box)return;
+  box.innerHTML='';
+  const row=(id,name,tag,on)=>{
+    const d=document.createElement('div');d.className='li'+(on?' on':'');
+    const b=document.createElement('b');b.textContent=name;
+    const s=document.createElement('span');s.className='tag';s.textContent=tag;
+    d.appendChild(b);d.appendChild(s);
+    d.onclick=()=>selectSong(id);
+    if(id!==null){const x=document.createElement('button');x.className='x';x.textContent='删';
+      x.onclick=ev=>{ev.stopPropagation();delSong(id);};d.appendChild(x);}
+    box.appendChild(d);};
+  row(null,'内置 '+builtinTitle(),'三难度谱面',selId===null);
+  for(const s of LIB){
+    const n=s.charts?Object.keys(s.charts).length:0;
+    row(s.id,s.name,n?n+' 张自制谱':'浏览器简易谱',s.id===selId);}
+  const cur=selId===null?null:LIB.find(x=>x.id===selId);
+  document.getElementById('songName').textContent=cur?cur.name:'内置 '+builtinTitle();
+}
+async function selectSong(id){
+  selId=id;rememberSel();renderLib();
+  const rec=id===null?null:LIB.find(x=>x.id===id);
+  if(rec&&!DECODED.has(rec.id)){
+    document.getElementById('songName').textContent=rec.name+' · 载入中…';
+    try{await ensureDecoded(rec);}catch(e){}
+    renderLib();}
+}
+async function delSong(id){
+  const rec=LIB.find(x=>x.id===id);if(!rec)return;
+  if(!confirm('把《'+rec.name+'》从歌单删掉？音频和谱面都会没。'))return;
+  try{await dbDel(id);}catch(x){}
+  LIB=LIB.filter(x=>x.id!==id);DECODED.delete(id);
+  if(selId===id)selId=null;
+  rememberSel();renderLib();
+}
+async function libInit(){
+  try{LIB=(await dbAll()||[]).filter(r=>r&&r.id&&r.blob).sort((a,b)=>(a.addedAt||0)-(b.addedAt||0));}
+  catch(e){LIB=[];}
+  let saved=null;try{saved=localStorage.getItem('starbeat.sel');}catch(x){}
+  selId=(saved&&LIB.some(x=>x.id===saved))?saved:null;
+  renderLib();
+}
+
 /* ================= 内置真歌：开机拉字节，点开始才解码 ================= */
 let BUILTIN=null;
 async function useBuiltin(){
@@ -505,45 +589,37 @@ async function predecode(raw){
   try{return await new OC(2,44100,44100).decodeAudioData(raw.slice(0));}catch(e){return null;}
 }
 (async function loadBuiltin(){
-  const el=document.getElementById('songName');
-  el.textContent='内置曲加载中…';
   try{
     const j=await (await fetch('builtin/charts.json')).json();
     const raw=await (await fetch('builtin/'+j.audio)).arrayBuffer();
     BUILTIN={title:String(j.title||'内置曲').slice(0,24),charts:j.difficulties,raw:raw,buffer:null};
-    el.textContent='内置 '+BUILTIN.title;
     BUILTIN.buffer=await predecode(raw);
-  }catch(e){
-    BUILTIN=null;el.textContent='内置原创曲 NEON DRIVE';
-  }
+  }catch(e){BUILTIN=null;}
+  renderLib();
 })();
 
 document.getElementById('start').onclick=()=>{
   const btn=document.getElementById('start');
   ensureAudio().then(async()=>{
+    btn.textContent='载入中…';
     let base,name,artist;
-    if(importedChart){
-      base={notes:importedChart.notes,events:[],
-            dur:importedAudio?importedAudio.buffer.duration:importedChart.dur,
-            audioBuffer:importedAudio?importedAudio.buffer:null};
-      name=importedAudio?importedAudio.name:importedChart.name;
-      artist='外部谱面 '+(importedChart.bpm?importedChart.bpm+' BPM · ':'')
-             +importedChart.notes.length+' 颗'+(importedAudio?'':' · 还没选歌，会没声音');
-    }else if(importedAudio){
-      const c=autoChart(importedAudio.buffer,S.diff);
-      base={notes:c.notes,events:[],dur:c.dur,audioBuffer:importedAudio.buffer};
-      name=importedAudio.name;artist=importedAudio.artist;
+    const rec=selId===null?null:LIB.find(x=>x.id===selId);
+    if(rec){
+      const buf=await ensureDecoded(rec),c=chartOf(rec,S.diff);
+      const notes=c?c.notes:autoChart(buf,S.diff).notes;
+      base={notes:notes,events:[],dur:buf.duration,audioBuffer:buf};
+      name=rec.name;
+      artist=(c?'自制谱 '+(c.bpm?c.bpm+' BPM · ':''):'简易谱 · ')+notes.length+' 颗';
     }else if(BUILTIN){
-      btn.textContent='载入中…';
       const d=BUILTIN.charts[String(S.diff)]||BUILTIN.charts['1'];
       const buf=await useBuiltin();
       base={notes:d.notes,events:[],dur:buf.duration,audioBuffer:buf};
       name=BUILTIN.title;
       artist='内置曲 '+(d.bpm?d.bpm+' BPM · ':'')+(d.notes||[]).length+' 颗';
-      btn.textContent='开始';
     }else{
       base=buildDemo(S.diff);name='NEON DRIVE';artist='原创 demo · 128 BPM';
     }
+    btn.textContent='开始';
     beginSong(base,name,artist);
   }).catch(()=>{btn.textContent='开始';});
 };
@@ -599,21 +675,23 @@ addEventListener('keydown',e=>{const k=e.key.toLowerCase();
   if(l!==undefined&&!e.repeat)press(l,'k'+l);});
 addEventListener('keyup',e=>{const l=KEY_LANE[e.key.toLowerCase()];if(l!==undefined)release('k'+l);});
 
-/* 导入 */
-let importedAudio=null;
+/* 加歌：先解码验证能放，再写进本机歌单 */
 document.getElementById('pickAudio').onclick=()=>document.getElementById('fAudio').click();
 document.getElementById('fAudio').onchange=async e=>{
-  const f=e.target.files[0];if(!f)return;
-  document.getElementById('songName').textContent='解码中…';
-  await ensureAudio();
-  try{
-    const buf=await AC.decodeAudioData(await f.arrayBuffer());
-    importedAudio={buffer:buf,name:f.name.replace(/\.[^.]+$/,'').slice(0,24),
-      artist:'导入曲 '+Math.round(buf.duration)+'s · 自动谱面'};
-    document.getElementById('songName').textContent=importedAudio.name;
-  }catch(err){
-    document.getElementById('songName').textContent='这个格式读不了，换 mp3/m4a 试试';
-  }
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  const el=document.getElementById('songName');
+  if(!await fitsSpace(f.size)){el.textContent='设备空间不够了，先删几首老歌';return;}
+  const rec={id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    name:f.name.replace(/\.[^.]+$/,'').slice(0,24),size:f.size,addedAt:Date.now(),
+    charts:null,blob:f};
+  el.textContent=rec.name+' · 解码中…';
+  try{await ensureDecoded(rec);}
+  catch(err){DECODED.delete(rec.id);el.textContent='这个格式读不了，换 mp3/m4a/wav 试试';return;}
+  try{await dbPut(rec);}
+  catch(err){DECODED.delete(rec.id);el.textContent='存不进本地存储，可能被浏览器挡了';return;}
+  LIB.push(rec);selId=rec.id;rememberSel();
+  try{navigator.storage.persist&&navigator.storage.persist();}catch(x){}
+  renderLib();
 };
 document.getElementById('pickAva').onclick=()=>document.getElementById('fAva').click();
 document.getElementById('fAva').onchange=e=>{
@@ -630,12 +708,13 @@ document.getElementById('fAva').onchange=e=>{
   img.src=url;
 };
 
-/* 导入外部谱面 */
-let importedChart=null;
+/* 导入谱面：按 difficulty 落到当前选中歌曲的对应槽位，连导三次凑齐三难度 */
 document.getElementById('pickChart').onclick=()=>document.getElementById('fChart').click();
 document.getElementById('fChart').onchange=async e=>{
-  const f=e.target.files[0];if(!f)return;
+  const f=e.target.files[0];e.target.value='';if(!f)return;
   const el=document.getElementById('chartName');
+  const rec=selId===null?null:LIB.find(x=>x.id===selId);
+  if(!rec){el.textContent='先点歌单里你导入的那首歌，再导谱面';return;}
   el.textContent='读取中…';
   try{
     const j=JSON.parse(await f.text());
@@ -643,11 +722,15 @@ document.getElementById('fChart').onchange=async e=>{
       .map(n=>({t:+n.t,lane:n.lane|0,type:n.type==='hold'?'hold':'tap',dur:Math.max(0,+n.dur||0)}));
     if(!notes.length)throw new Error('empty');
     notes.sort((a,b)=>a.t-b.t);
-    importedChart={notes:notes,dur:+j.duration||notes[notes.length-1].t+2,
-      name:String(j.name||f.name.replace(/\.json$/i,'')).slice(0,28),bpm:+j.bpm||0};
-    el.textContent=importedChart.name+' ✓ '+(j.difficulty||'')+' '+notes.length+'颗';
+    const key={Easy:'0',Normal:'1',Hard:'2'}[j.difficulty];
+    const slot=key===undefined?String(S.diff):key;
+    rec.charts=rec.charts||{};
+    rec.charts[slot]={notes:notes,duration:+j.duration||notes[notes.length-1].t+2,
+      bpm:+j.bpm||0,difficulty:j.difficulty||''};
+    await dbPut(rec);
+    renderLib();
+    el.textContent=rec.name+' ✓ '+(['Easy','Normal','Hard'][+slot])+' '+notes.length+' 颗';
   }catch(err){
-    importedChart=null;
     el.textContent='读不懂这个 json，确认是 make_chart.py 导出的';
   }
 };
@@ -655,6 +738,7 @@ document.getElementById('fChart').onchange=async e=>{
 /* 启动 */
 resize();addEventListener('resize',resize);addEventListener('orientationchange',()=>setTimeout(resize,200));
 defaultAvatar();
+libInit();
 try{const sp=localStorage.getItem('starbeat.spd');if(sp)setSpeed(+sp);}catch(e){}
 try{const saved=localStorage.getItem('starbeat.ava');
   if(saved){const im=new Image();im.onload=()=>{avatar=im;document.getElementById('avaName').textContent='你的明星 ✓';};im.src=saved;}
