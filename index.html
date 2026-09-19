@@ -50,8 +50,8 @@ td:first-child{text-align:left;opacity:.6}
 #pbtn{position:fixed;left:14px;bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:1;
   width:56px;height:56px;border-radius:16px;padding:0;font-size:20px;line-height:1;
   background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.18)}
-.corner{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:14px;z-index:6;
-  padding:9px 15px;font-size:13px;font-weight:600;border-radius:999px;
+.corner{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:14px;z-index:6;display:flex;gap:8px}
+.corner button{padding:9px 15px;font-size:13px;font-weight:600;border-radius:999px;
   background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.2)}
 .mask{position:fixed;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;
   padding:24px;background:rgba(4,12,16,.74);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
@@ -64,7 +64,9 @@ td:first-child{text-align:left;opacity:.6}
 <body>
 <canvas id="game"></canvas>
 <button id="pbtn" class="hidden">II</button>
-<button id="howto" class="corner">怎么玩</button>
+<div id="corner" class="corner">
+  <button id="cfgBtn">设置</button><button id="howto">怎么玩</button>
+</div>
 
 <div id="menu" class="screen">
   <h1>STAR BEAT</h1>
@@ -104,7 +106,22 @@ td:first-child{text-align:left;opacity:.6}
       <b style="color:#f87171">MISS</b> 0 分 · 断连击、掉血<br>
       打准了明星会越变越亮。
     </div>
-    <button class="ghost" id="helpBack">知道了</button>
+    <button class="ghost close">知道了</button>
+  </div>
+</div>
+
+<div id="cfg" class="mask hidden">
+  <div class="sheet">
+    <h2>设置</h2>
+    <div class="card">
+      <div class="small">音符下落时间 <span id="spdVal">2.00</span> 秒（当前难度单独记）— 觉得太快就往右调大</div>
+      <input type="range" id="speed" min="1" max="3.5" step="0.1" value="2">
+    </div>
+    <div class="card">
+      <div class="small">音画校准 <span id="offVal">0</span> ms — 调到"听到的鼓点"和"看到的压线"完全重合为止</div>
+      <input type="range" id="offset" min="-120" max="120" step="5" value="0">
+    </div>
+    <button class="ghost close">知道了</button>
   </div>
 </div>
 
@@ -135,8 +152,9 @@ td:first-child{text-align:left;opacity:.6}
 /* ================= 画布与布局 ================= */
 const cvs=document.getElementById('game'), ctx=cvs.getContext('2d');
 let W=0,H=0,DPR=1,LANE_W=0,PLAY_X=0,HIT_Y=0,TRAVEL=0;
-const SPAWN_BY_DIFF=[2.4,2.0,1.8];  // 三档固定的下落时间（秒）：音符从 HUD 下沿滑到判定线
-let SPAWN=SPAWN_BY_DIFF[1];
+const SPAWN_DEFAULT=[2.4,2.0,1.8];  // 三档默认下落时间（秒）：音符从 HUD 下沿滑到判定线
+let spawnByDiff=SPAWN_DEFAULT.slice();
+let SPAWN=spawnByDiff[1];
 const LANE_COL=['#7ff0a8','#3fd8c2','#5fc0ff','#9db4ff'];
 const KEY_LANE={d:0,f:1,j:2,k:3};
 function layout(){
@@ -271,8 +289,8 @@ const laneFlash=[0,0,0,0];
 let pop=null;           // 最近一次判定，纯视觉反馈
 const down=new Map();   // pointerId -> {lane, hold}
 
-/* 音画补偿（毫秒），玩家不能调；正数把画面往后推，用来抵蓝牙耳机的输出延迟（典型 150–250） */
-const OFFSET=0;
+/* 音画补偿（毫秒），在设置里调；正数把画面往后推，用来抵蓝牙耳机的输出延迟（典型 150–250） */
+let OFFSET=0;
 function now(){ return AC?AC.currentTime-songStart-OFFSET/1000:0; }
 function resetSong(){S.score=0;S.combo=0;S.maxCombo=0;S.hp=100;S.weight=0;pop=null;
   S.counts={marvelous:0,excellent:0,good:0,miss:0};}
@@ -527,7 +545,7 @@ function show(name){
     document.getElementById(id).classList.toggle('hidden',k!==name);
   }
   document.getElementById('pbtn').classList.toggle('hidden',name!=='none');
-  document.getElementById('howto').classList.toggle('hidden',name!=='menu');
+  document.getElementById('corner').classList.toggle('hidden',name!=='menu');
 }
 function laneFromX(x){const i=Math.floor((x-PLAY_X)/LANE_W);return i<0||i>3?-1:i;}
 
@@ -680,11 +698,16 @@ document.getElementById('start').onclick=()=>{
     btn.textContent=BUILTIN?'没下载成功 · 再点一次':'开始';
     setTimeout(()=>{btn.textContent='开始';},2800);});
 };
-const helpBox=document.getElementById('help');
-const showHelp=on=>helpBox.classList.toggle('hidden',!on);
-document.getElementById('howto').onclick=()=>showHelp(true);
-document.getElementById('helpBack').onclick=()=>showHelp(false);
-helpBox.onclick=e=>{if(e.target===helpBox)showHelp(false);};
+/* 角落弹窗：点「知道了」或卡片外的暗区都能关 */
+function bindMask(id){
+  const box=document.getElementById(id);
+  box.querySelector('.close').onclick=()=>box.classList.add('hidden');
+  box.onclick=e=>{if(e.target===box)box.classList.add('hidden');};
+  return ()=>box.classList.remove('hidden');
+}
+const openHelp=bindMask('help'), openCfg=bindMask('cfg');
+document.getElementById('howto').onclick=openHelp;
+document.getElementById('cfgBtn').onclick=()=>{renderCfg();openCfg();};
 document.getElementById('again').onclick=()=>document.getElementById('start').onclick();
 document.getElementById('back').onclick=()=>{stopSong();S.state='menu';show('menu');};
 document.getElementById('quit').onclick=()=>{stopSong();S.state='menu';show('menu');};
@@ -692,8 +715,33 @@ document.getElementById('resume').onclick=()=>doPause(false);
 document.getElementById('pbtn').onclick=()=>doPause(true);
 document.querySelectorAll('#diff button').forEach(b=>{
   b.onclick=()=>{document.querySelectorAll('#diff button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on');S.diff=+b.dataset.d;SPAWN=SPAWN_BY_DIFF[S.diff];};
+    b.classList.add('on');S.diff=+b.dataset.d;SPAWN=spawnByDiff[S.diff];};
 });
+/* 设置：下落时间每个难度各存一份，音画校准全局一份 */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function renderCfg(){
+  document.getElementById('speed').value=SPAWN;
+  document.getElementById('spdVal').textContent=SPAWN.toFixed(2);
+  document.getElementById('offset').value=OFFSET;
+  document.getElementById('offVal').textContent=OFFSET;
+}
+function saveCfg(){try{
+  localStorage.setItem('starbeat.spd3',JSON.stringify(spawnByDiff));
+  localStorage.setItem('starbeat.off',String(OFFSET));}catch(x){}}
+/* 键名故意新起：旧的 starbeat.spd / spd2 存的是单个数，读进来会顶掉分档默认值 */
+function loadCfg(){
+  try{const s=JSON.parse(localStorage.getItem('starbeat.spd3'));
+    if(Array.isArray(s))s.forEach((v,i)=>{v=+v;
+      if(i<3&&Number.isFinite(v))spawnByDiff[i]=clamp(v,1,3.5);});}catch(x){}
+  try{const o=parseFloat(localStorage.getItem('starbeat.off'));
+    if(Number.isFinite(o))OFFSET=clamp(o,-200,200);}catch(x){}
+  SPAWN=spawnByDiff[S.diff];
+  renderCfg();
+}
+document.getElementById('speed').oninput=e=>{SPAWN=+e.target.value;spawnByDiff[S.diff]=SPAWN;
+  document.getElementById('spdVal').textContent=SPAWN.toFixed(2);saveCfg();};
+document.getElementById('offset').oninput=e=>{OFFSET=+e.target.value;
+  document.getElementById('offVal').textContent=OFFSET;saveCfg();};
 
 let paused=false;
 function doPause(on){
@@ -787,6 +835,7 @@ document.getElementById('fChart').onchange=async e=>{
 resize();addEventListener('resize',resize);addEventListener('orientationchange',()=>setTimeout(resize,200));
 defaultAvatar();
 libInit();
+loadCfg();
 try{const saved=localStorage.getItem('starbeat.ava');
   if(saved){const im=new Image();im.onload=()=>{avatar=im;document.getElementById('avaName').textContent='你的明星 ✓';};im.src=saved;}
 }catch(e){}
