@@ -1,4 +1,8 @@
-# 这个仓库只公开游戏引擎本身：歌、谱面、打谱脚本都留在本地
+# 默认什么都不公开。放行的只有引擎本身 + 内置曲（音频和三难度谱面）
+# 你自己导入的歌、额外的 chart json、make_chart.py / make_builtin.py 都留在本地
 *
 !index.html
 !.gitignore
+!builtin/
+!builtin/charts.json
+!builtin/track.m4a

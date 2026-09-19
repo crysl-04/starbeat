@@ -492,8 +492,35 @@ function show(name){
 }
 function laneFromX(x){const i=Math.floor((x-PLAY_X)/LANE_W);return i<0||i>3?-1:i;}
 
+/* ================= 内置真歌：开机拉字节，点开始才解码 ================= */
+let BUILTIN=null;
+async function useBuiltin(){
+  if(!BUILTIN.buffer)BUILTIN.buffer=await AC.decodeAudioData(BUILTIN.raw.slice(0));
+  return BUILTIN.buffer;
+}
+/* 预解码用 OfflineAudioContext：只解码，不碰播放用的 AC，iOS 手势限制与它无关 */
+async function predecode(raw){
+  const OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  if(!OC)return null;
+  try{return await new OC(2,44100,44100).decodeAudioData(raw.slice(0));}catch(e){return null;}
+}
+(async function loadBuiltin(){
+  const el=document.getElementById('songName');
+  el.textContent='内置曲加载中…';
+  try{
+    const j=await (await fetch('builtin/charts.json')).json();
+    const raw=await (await fetch('builtin/'+j.audio)).arrayBuffer();
+    BUILTIN={title:String(j.title||'内置曲').slice(0,24),charts:j.difficulties,raw:raw,buffer:null};
+    el.textContent='内置 '+BUILTIN.title;
+    BUILTIN.buffer=await predecode(raw);
+  }catch(e){
+    BUILTIN=null;el.textContent='内置原创曲 NEON DRIVE';
+  }
+})();
+
 document.getElementById('start').onclick=()=>{
-  ensureAudio().then(()=>{
+  const btn=document.getElementById('start');
+  ensureAudio().then(async()=>{
     let base,name,artist;
     if(importedChart){
       base={notes:importedChart.notes,events:[],
@@ -506,11 +533,19 @@ document.getElementById('start').onclick=()=>{
       const c=autoChart(importedAudio.buffer,S.diff);
       base={notes:c.notes,events:[],dur:c.dur,audioBuffer:importedAudio.buffer};
       name=importedAudio.name;artist=importedAudio.artist;
+    }else if(BUILTIN){
+      btn.textContent='载入中…';
+      const d=BUILTIN.charts[String(S.diff)]||BUILTIN.charts['1'];
+      const buf=await useBuiltin();
+      base={notes:d.notes,events:[],dur:buf.duration,audioBuffer:buf};
+      name=BUILTIN.title;
+      artist='内置曲 '+(d.bpm?d.bpm+' BPM · ':'')+(d.notes||[]).length+' 颗';
+      btn.textContent='开始';
     }else{
       base=buildDemo(S.diff);name='NEON DRIVE';artist='原创 demo · 128 BPM';
     }
     beginSong(base,name,artist);
-  });
+  }).catch(()=>{btn.textContent='开始';});
 };
 document.getElementById('howto').onclick=()=>show('help');
 document.getElementById('helpBack').onclick=()=>show('menu');
