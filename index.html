@@ -31,7 +31,8 @@ button.ghost{background:#ffffff16;font-weight:500;font-size:15px;padding:11px 20
 .stat{font-size:14px;opacity:.75;line-height:2}
 .file{font-size:14px;padding:12px 16px;border-radius:12px;background:#ffffff10;display:flex;gap:10px;align-items:center}
 .file b{color:#86d9ff;font-weight:600}
-#menu{justify-content:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-top:26px}
+#menu{justify-content:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding-top:calc(env(safe-area-inset-top) + 54px)}
 .lib{display:flex;flex-direction:column;gap:6px;width:100%;max-width:340px}
 .li{display:flex;align-items:center;gap:9px;padding:11px 13px;border-radius:12px;background:#ffffff0d;
   border:1px solid transparent;font-size:14px;text-align:left;cursor:pointer}
@@ -49,11 +50,21 @@ td:first-child{text-align:left;opacity:.6}
 #pbtn{position:fixed;left:14px;bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:1;
   width:56px;height:56px;border-radius:16px;padding:0;font-size:20px;line-height:1;
   background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.18)}
+.corner{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:14px;z-index:6;
+  padding:9px 15px;font-size:13px;font-weight:600;border-radius:999px;
+  background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.2)}
+.mask{position:fixed;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:rgba(4,12,16,.74);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.sheet{width:100%;max-width:360px;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center;padding:26px 22px;
+  border-radius:20px;background:linear-gradient(180deg,#123039,#0a1d24);
+  border:1px solid rgba(255,255,255,.12);box-shadow:0 18px 50px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <button id="pbtn" class="hidden">II</button>
+<button id="howto" class="corner">怎么玩</button>
 
 <div id="menu" class="screen">
   <h1>STAR BEAT</h1>
@@ -63,7 +74,6 @@ td:first-child{text-align:left;opacity:.6}
     </div>
     <div class="card">
       <button id="start">开始</button>
-      <button class="ghost" id="howto">怎么玩</button>
     </div>
   </div>
   <div class="row file">🎵 <b id="songName">内置原创曲 NEON DRIVE</b> <button class="ghost" id="pickAudio">加歌</button></div>
@@ -84,20 +94,22 @@ td:first-child{text-align:left;opacity:.6}
   <div class="small">「加歌」选一首手机里的音乐（mp3 / m4a / wav 都行），它会永久存在这台设备上，下次打开还在；不导谱面就用浏览器简易谱。「换明星」选一张照片，它会站在判定线上方跟着你的连击发光。<br><br>Safari 请从分享菜单「添加到主屏幕」打开：普通标签页放 7 天不用，系统会把歌单清掉。</div>
 </div>
 
-<div id="help" class="screen hidden">
-  <h2>怎么玩</h2>
-  <div class="small" style="font-size:15px;line-height:2">
-    音符落下来，在它们<b>碰到判定线的那一刻</b>点屏幕。<br>
-    屏幕竖着分成 4 条轨道，用哪根手指点哪条，可以四根手指一起按。<br>
-    长条要按住不放，直到它消失。<br>
-    判定分四级，越准分越多：<br>
-    <b style="color:#7ff0a8">MARVELOUS</b> 40ms 内 · 100 分<br>
-    <b style="color:#86d9ff">EXCELLENT</b> 90ms 内 · 70 分<br>
-    <b style="color:#cfe0e6">GOOD</b> 150ms 内 · 30 分（不断连击）<br>
-    <b style="color:#f87171">MISS</b> 0 分 · 断连击、掉血<br>
-    打准了明星会越变越亮。
+<div id="help" class="mask hidden">
+  <div class="sheet">
+    <h2>怎么玩</h2>
+    <div class="small" style="font-size:15px;line-height:2">
+      音符落下来，在它们<b>碰到判定线的那一刻</b>点屏幕。<br>
+      屏幕竖着分成 4 条轨道，用哪根手指点哪条，可以四根手指一起按。<br>
+      长条要按住不放，直到它消失。<br>
+      判定分四级，越准分越多：<br>
+      <b style="color:#7ff0a8">MARVELOUS</b> 40ms 内 · 100 分<br>
+      <b style="color:#86d9ff">EXCELLENT</b> 90ms 内 · 70 分<br>
+      <b style="color:#cfe0e6">GOOD</b> 150ms 内 · 30 分（不断连击）<br>
+      <b style="color:#f87171">MISS</b> 0 分 · 断连击、掉血<br>
+      打准了明星会越变越亮。
+    </div>
+    <button class="ghost" id="helpBack">知道了</button>
   </div>
-  <button class="ghost" id="helpBack">返回</button>
 </div>
 
 <div id="pause" class="screen hidden">
@@ -516,7 +528,7 @@ function finish(){
 }
 
 /* ================= UI ================= */
-const screens={menu:'menu',result:'result',pause:'pause',help:'help',none:null};
+const screens={menu:'menu',result:'result',pause:'pause',none:null};
 function show(name){
   for(const k in screens){
     const id=screens[k];
@@ -524,6 +536,7 @@ function show(name){
     document.getElementById(id).classList.toggle('hidden',k!==name);
   }
   document.getElementById('pbtn').classList.toggle('hidden',name!=='none');
+  document.getElementById('howto').classList.toggle('hidden',name!=='menu');
 }
 function laneFromX(x){const i=Math.floor((x-PLAY_X)/LANE_W);return i<0||i>3?-1:i;}
 
@@ -676,8 +689,11 @@ document.getElementById('start').onclick=()=>{
     btn.textContent=BUILTIN?'没下载成功 · 再点一次':'开始';
     setTimeout(()=>{btn.textContent='开始';},2800);});
 };
-document.getElementById('howto').onclick=()=>show('help');
-document.getElementById('helpBack').onclick=()=>show('menu');
+const helpBox=document.getElementById('help');
+const showHelp=on=>helpBox.classList.toggle('hidden',!on);
+document.getElementById('howto').onclick=()=>showHelp(true);
+document.getElementById('helpBack').onclick=()=>showHelp(false);
+helpBox.onclick=e=>{if(e.target===helpBox)showHelp(false);};
 document.getElementById('again').onclick=()=>document.getElementById('start').onclick();
 document.getElementById('back').onclick=()=>{stopSong();S.state='menu';show('menu');};
 document.getElementById('quit').onclick=()=>{stopSong();S.state='menu';show('menu');};
