@@ -93,7 +93,12 @@ td:first-child{text-align:left;opacity:.6}
     音符落下来，在它们<b>碰到判定线的那一刻</b>点屏幕。<br>
     屏幕竖着分成 4 条轨道，用哪根手指点哪条，可以四根手指一起按。<br>
     长条要按住不放，直到它消失。<br>
-    打准了明星会越变越亮，Miss 会掉血。
+    判定分四级，越准分越多：<br>
+    <b style="color:#7ff0a8">MARVELOUS</b> 40ms 内 · 100 分<br>
+    <b style="color:#86d9ff">EXCELLENT</b> 90ms 内 · 70 分<br>
+    <b style="color:#cfe0e6">GOOD</b> 150ms 内 · 30 分（不断连击）<br>
+    <b style="color:#f87171">MISS</b> 0 分 · 断连击、掉血<br>
+    打准了明星会越变越亮。
   </div>
   <button class="ghost" id="helpBack">返回</button>
 </div>
@@ -115,10 +120,10 @@ td:first-child{text-align:left;opacity:.6}
   <h2 id="rSong">—</h2>
   <div class="big" id="grade">S</div>
   <table>
-    <tr><td>Perfect</td><td id="cP">0</td><td>Max Combo</td><td id="cC">0</td></tr>
-    <tr><td>Great</td><td id="cG">0</td><td>准确率</td><td id="cA">0%</td></tr>
-    <tr><td>Bad</td><td id="cB">0</td><td>Mission</td><td id="cM"> cleared</td></tr>
-    <tr><td>Miss</td><td id="cX">0</td><td>血量</td><td id="cH">0%</td></tr>
+    <tr><td>MARVELOUS <span style="opacity:.7">×100</span></td><td id="cP">0</td><td>Max Combo</td><td id="cC">0</td></tr>
+    <tr><td>EXCELLENT <span style="opacity:.7">×70</span></td><td id="cG">0</td><td>准确率</td><td id="cA">0%</td></tr>
+    <tr><td>GOOD <span style="opacity:.7">×30</span></td><td id="cB">0</td><td>Mission</td><td id="cM"> cleared</td></tr>
+    <tr><td>MISS <span style="opacity:.7">×0</span></td><td id="cX">0</td><td>血量</td><td id="cH">0%</td></tr>
   </table>
   <div class="small" id="comment" style="font-size:14px;opacity:.8"></div>
   <div class="row">
@@ -190,9 +195,9 @@ function playVoice(e){
     case'l':tone(e.t,e.f,e.d,.12,'square',2600);break;
   }
 }
-function blip(lane,perfect){const t=AC.currentTime;
-  tone(t,perfect?1320:880,.05,perfect?.10:.05,'triangle',9000);
-  if(perfect)tone(t+.02,1980,.04,.05,'sine',9000);
+function blip(lane,bright){const t=AC.currentTime;
+  tone(t,bright?1320:880,.05,bright?.10:.05,'triangle',9000);
+  if(bright)tone(t+.02,1980,.04,.05,'sine',9000);
 }
 
 /* ================= 内置 demo 曲 + 谱面 ================= */
@@ -261,14 +266,15 @@ function autoChart(buffer,diff){
 
 /* ================= 游戏状态 ================= */
 const S={state:'menu',song:null,base:null,notes:[],score:0,combo:0,maxCombo:0,
-  hp:100,counts:{perfect:0,great:0,bad:0,miss:0},weight:0,offset:0,diff:1};
+  hp:100,counts:{marvelous:0,excellent:0,good:0,miss:0},weight:0,offset:0,diff:1};
 let songStart=0,schedIdx=0,schedTimer=0,srcNode=null,activeSrc=[];
 const laneFlash=[0,0,0,0];
+let pop=null;           // 最近一次判定，纯视觉反馈
 const down=new Map();   // pointerId -> {lane, hold}
 
 function now(){ return AC?AC.currentTime-songStart-S.offset/1000:0; }
-function resetSong(){S.score=0;S.combo=0;S.maxCombo=0;S.hp=100;S.weight=0;
-  S.counts={perfect:0,great:0,bad:0,miss:0};}
+function resetSong(){S.score=0;S.combo=0;S.maxCombo=0;S.hp=100;S.weight=0;pop=null;
+  S.counts={marvelous:0,excellent:0,good:0,miss:0};}
 
 function beginSong(base,name,artist){
   resetSong();
@@ -300,21 +306,26 @@ function stopSong(){
 }
 
 /* ================= 判定 ================= */
-const W_PERF=.025,W_GREAT=.058,W_BAD=.115;
+const W_MV=.04,W_EX=.09,W_GO=.15;
+const JUDGE={
+  marvelous:{txt:'MARVELOUS',col:'#7ff0a8',val:100,w:1,  hp:.35},
+  excellent:{txt:'EXCELLENT',col:'#86d9ff',val:70, w:.7, hp:.2},
+  good:     {txt:'GOOD',     col:'#cfe0e6',val:30, w:.3, hp:.05},
+  miss:     {txt:'MISS',     col:'#f87171',val:0,  w:0,  hp:-2.2}};
 function grade(dt){const a=Math.abs(dt);
-  return a<=W_PERF?'perfect':a<=W_GREAT?'great':a<=W_BAD?'bad':'miss';}
+  return a<=W_MV?'marvelous':a<=W_EX?'excellent':a<=W_GO?'good':'miss';}
 function applyJudge(n,how){
   n.judged=true;
-  const c=S.counts; c[how]++;
-  if(how==='miss'){S.combo=0;S.hp-=2.2;return;}
+  const J=JUDGE[how];
+  S.counts[how]++;pop={j:J,t:now()};
+  if(how==='miss'){S.combo=0;S.hp+=J.hp;return;}
   S.combo++; if(S.combo>S.maxCombo)S.maxCombo=S.combo;
-  S.hp=Math.min(100,S.hp+(how==='perfect'?.35:.15));
-  const val=how==='perfect'?100:how==='great'?65:20;
-  S.score+=val+Math.min(S.combo,300)*.35;
-  S.weight+=how==='perfect'?1:how==='great'?.65:.2;
+  S.hp=Math.min(100,S.hp+J.hp);
+  S.score+=J.val+Math.min(S.combo,300)*.35;
+  S.weight+=J.w;
   laneFlash[n.lane]=1;
-  if(how==='perfect')avatarGlow=1;
-  if(how!=='bad'&&AC)blip(n.lane,how==='perfect');
+  if(how==='marvelous')avatarGlow=1;
+  if(AC)blip(n.lane,how==='marvelous');
   if(n.type==='hold'&&!n.broken){n.held=true;}
 }
 function press(lane,id){
@@ -325,8 +336,8 @@ function press(lane,id){
   for(const n of S.notes){
     if(n.judged||n.lane!==lane)continue;
     const d=n.t-t,ad=Math.abs(d);
-    if(ad<W_BAD&&ad<bestAbs){best=n;bestAbs=ad;}
-    if(n.t>t+W_BAD)break;
+    if(ad<W_GO&&ad<bestAbs){best=n;bestAbs=ad;}
+    if(n.t>t+W_GO)break;
   }
   if(best)applyJudge(best,grade(t-best.t));
   if(best&&best.type==='hold')down.set(id,{lane:lane,hold:best});
@@ -343,7 +354,7 @@ function update(){
   if(S.state!=='play')return;
   const t=now();
   for(const n of S.notes){
-    if(!n.judged&&t-n.t>W_BAD)applyJudge(n,'miss');
+    if(!n.judged&&t-n.t>W_GO)applyJudge(n,'miss');
     if(n.type==='hold'&&n.held&&!n.done&&t>=n.t+n.dur){
       n.done=true;S.score+=40;
     }
@@ -455,6 +466,20 @@ function draw(t){
     ctx.textAlign='right';ctx.font='700 20px -apple-system,sans-serif';ctx.fillStyle='#fff';
     ctx.fillText(Math.round(S.score).toLocaleString(),PLAY_X+LANE_W*4,44);
     ctx.textAlign='left';
+    /* 判定文字：最近一次判定在判定线上方浮一下 */
+    if(pop){
+      const a=t-pop.t;
+      if(a>=.6)pop=null;
+      else{
+        const k=1-a/.6;
+        ctx.save();ctx.textAlign='center';
+        ctx.globalAlpha=Math.min(1,k*2.2);
+        ctx.font='800 '+Math.round(Math.min(30,LANE_W*.32)*(1+(1-k)*.08))+'px -apple-system,sans-serif';
+        ctx.fillStyle=pop.j.col;ctx.shadowColor=pop.j.col;ctx.shadowBlur=16;
+        ctx.fillText(pop.j.txt,W/2,HIT_Y-54-a*26);
+        ctx.restore();
+      }
+    }
   }
 }
 function frame(){
@@ -474,15 +499,15 @@ const COMMENT={
   F:'「血量都保不住…先选 Easy 吧。」'};
 function finish(){
   stopSong();
-  const c=S.counts,total=c.perfect+c.great+c.bad+c.miss;
+  const c=S.counts,total=c.marvelous+c.excellent+c.good+c.miss;
   const acc=total?S.weight/total*100:0;
   const cleared=S.hp>0;
   const g=acc>=97&&cleared?'S':acc>=93&&cleared?'A':acc>=88?'B':acc>=80?'C':acc>=65?'D':'F';
   document.getElementById('rSong').textContent=S.base.name;
   document.getElementById('grade').textContent=acc>=97&&cleared?'SS':g;
-  document.getElementById('cP').textContent=c.perfect;
-  document.getElementById('cG').textContent=c.great;
-  document.getElementById('cB').textContent=c.bad;
+  document.getElementById('cP').textContent=c.marvelous;
+  document.getElementById('cG').textContent=c.excellent;
+  document.getElementById('cB').textContent=c.good;
   document.getElementById('cX').textContent=c.miss;
   document.getElementById('cC').textContent=S.maxCombo;
   document.getElementById('cA').textContent=acc.toFixed(1)+'%';
