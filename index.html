@@ -81,9 +81,10 @@ td:first-child{text-align:left;opacity:.6}
     <div class="small">音画校准 <span id="offVal">0</span> ms — 打一会儿，调到"听到的鼓点"和"看到的压线"完全重合为止</div>
     <input type="range" id="offset" min="-120" max="120" step="5" value="0">
   </div>
-  <input type="file" id="fAudio" accept="audio/*" hidden>
+  <!-- 故意不写 accept：iOS 会把扩展名缺失或类型认不出的文件整行置灰，微信里存出来的歌常常没有 .mp3 -->
+  <input type="file" id="fAudio" hidden>
   <input type="file" id="fAva" accept="image/*" hidden>
-  <input type="file" id="fChart" accept=".json,application/json" hidden>
+  <input type="file" id="fChart" hidden>
   <div class="small">「加歌」选一首手机里的音乐（mp3 / m4a / wav 都行），它会永久存在这台设备上，下次打开还在；不导谱面就用浏览器简易谱。「换明星」选一张照片，它会站在判定线上方跟着你的连击发光。<br><br>Safari 请从分享菜单「添加到主屏幕」打开：普通标签页放 7 天不用，系统会把歌单清掉。</div>
 </div>
 
