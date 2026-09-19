@@ -9,19 +9,19 @@
 <title>STAR BEAT</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden;background:#0b0912;color:#fff;touch-action:none;
+html,body{height:100%;overflow:hidden;background:#07141a;color:#fff;touch-action:none;
   font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
   overscroll-behavior:none;-webkit-user-select:none;user-select:none}
 #game{display:block;position:fixed;inset:0}
 .screen{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:16px;padding:28px;text-align:center;
-  background:radial-gradient(120% 80% at 50% 0%,#27193f,#0b0912 70%)}
+  background:radial-gradient(120% 80% at 50% 0%,#0d2b30,#07141a 70%)}
 .hidden{display:none!important}
-h1{font-size:38px;letter-spacing:4px;background:linear-gradient(90deg,#ff6ec7,#7afcff);
+h1{font-size:38px;letter-spacing:4px;background:linear-gradient(90deg,#7ff0a8,#86d9ff);
   -webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800}
 h2{font-size:26px;letter-spacing:2px}
 button{font:inherit;font-size:17px;font-weight:700;color:#fff;border:0;border-radius:14px;
-  padding:15px 30px;background:linear-gradient(135deg,#ff5b8a,#a77bff);cursor:pointer}
+  padding:15px 30px;background:linear-gradient(135deg,#3fd8a0,#4aa8ff);cursor:pointer}
 button.ghost{background:#ffffff16;font-weight:500;font-size:15px;padding:11px 20px}
 .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center}
 .small{font-size:12px;line-height:1.7;opacity:.55;max-width:340px}
@@ -30,18 +30,18 @@ button.ghost{background:#ffffff16;font-weight:500;font-size:15px;padding:11px 20
 .seg button.on{background:#ffffff26;opacity:1;font-weight:700}
 .stat{font-size:14px;opacity:.75;line-height:2}
 .file{font-size:14px;padding:12px 16px;border-radius:12px;background:#ffffff10;display:flex;gap:10px;align-items:center}
-.file b{color:#7afcff;font-weight:600}
+.file b{color:#86d9ff;font-weight:600}
 #menu{justify-content:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-top:26px}
 .lib{display:flex;flex-direction:column;gap:6px;width:100%;max-width:340px}
 .li{display:flex;align-items:center;gap:9px;padding:11px 13px;border-radius:12px;background:#ffffff0d;
   border:1px solid transparent;font-size:14px;text-align:left;cursor:pointer}
-.li.on{background:#ffffff20;border-color:#7afcff55}
+.li.on{background:#ffffff20;border-color:#86d9ff55}
 .li b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:168px}
 .li .tag{font-size:11px;opacity:.5;flex:1}
 .li .x{background:#ffffff14;color:#fff;font-size:12px;font-weight:500;padding:6px 11px;border-radius:9px}
 input[type=range]{width:200px;vertical-align:middle}
 .card{display:flex;flex-direction:column;gap:6px;align-items:center}
-.big{font-size:64px;font-weight:800;line-height:1;background:linear-gradient(180deg,#fff,#9d8bd8);
+.big{font-size:64px;font-weight:800;line-height:1;background:linear-gradient(180deg,#fff,#9fe8c8);
   -webkit-background-clip:text;background-clip:text;color:transparent}
 table{border-collapse:collapse;font-size:15px}
 td{padding:5px 12px;text-align:right;font-variant-numeric:tabular-nums}
@@ -133,7 +133,7 @@ td:first-child{text-align:left;opacity:.6}
 const cvs=document.getElementById('game'), ctx=cvs.getContext('2d');
 let W=0,H=0,DPR=1,LANE_W=0,PLAY_X=0,HIT_Y=0,TRAVEL=0;
 let SPAWN=1.15;         // 音符从 HUD 下沿滑到判定线的时间（秒），可在主菜单调
-const LANE_COL=['#ff5b8a','#ffb24a','#4ad6ff','#a77bff'];
+const LANE_COL=['#7ff0a8','#3fd8c2','#5fc0ff','#9db4ff'];
 const KEY_LANE={d:0,f:1,j:2,k:3};
 function layout(){
   const playW=Math.min(W*.94,H*.70,540);
@@ -359,7 +359,7 @@ function defaultAvatar(){
   const c=document.createElement('canvas');c.width=c.height=256;
   const g=c.getContext('2d');
   const grd=g.createLinearGradient(0,0,256,256);
-  grd.addColorStop(0,'#ff6ec7');grd.addColorStop(1,'#7afcff');
+  grd.addColorStop(0,'#7ff0a8');grd.addColorStop(1,'#86d9ff');
   g.fillStyle=grd;g.beginPath();
   for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?46:110;
     g[i?'lineTo':'moveTo'](128+Math.cos(a)*r,128+Math.sin(a)*r);}
@@ -372,7 +372,7 @@ function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h
 function draw(t){
   ctx.clearRect(0,0,W,H);
   const bg=ctx.createLinearGradient(0,0,0,H);
-  bg.addColorStop(0,'#1a1030');bg.addColorStop(1,'#0b0912');
+  bg.addColorStop(0,'#0a2226');bg.addColorStop(1,'#07141a');
   ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
   /* 轨道 */
   for(let i=0;i<4;i++){
@@ -395,7 +395,7 @@ function draw(t){
   avatarGlow*=.9;
   const ax=W/2, ay=HIT_Y*.36;
   ctx.save();ctx.translate(ax,ay);ctx.scale(pulse,pulse);
-  ctx.shadowColor='rgba(255,110,199,'+(.2+Math.min(S.combo,80)/80*.5)+')';
+  ctx.shadowColor='rgba(127,240,168,'+(.2+Math.min(S.combo,80)/80*.5)+')';
   ctx.shadowBlur=26+Math.min(S.combo,80)*1.1;
   ctx.globalAlpha=.2+.56*Math.min(S.combo,80)/80;
   if(avatar)ctx.drawImage(avatar,-size/2,-size/2,size,size);
@@ -435,7 +435,7 @@ function draw(t){
   ctx.restore();
   /* HUD */
   if(S.state==='play'){
-    ctx.fillStyle='rgba(11,9,18,.86)';ctx.fillRect(0,0,W,96);
+    ctx.fillStyle='rgba(7,20,26,.86)';ctx.fillRect(0,0,W,96);
     ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='700 22px -apple-system,sans-serif';
     ctx.fillText(S.base.name,PLAY_X,44);
     ctx.font='400 12px -apple-system,sans-serif';ctx.globalAlpha=.55;
@@ -447,7 +447,7 @@ function draw(t){
     if(S.combo>1){
       ctx.textAlign='center';ctx.globalAlpha=Math.min(1,(laneFlash[0]+1)*.9);
       ctx.font='800 '+(34+Math.min(S.combo,50)*.35)+'px -apple-system,sans-serif';
-      ctx.fillStyle='#fff';ctx.shadowColor='#7afcff';ctx.shadowBlur=20;
+      ctx.fillStyle='#fff';ctx.shadowColor='#86d9ff';ctx.shadowBlur=20;
       ctx.fillText(S.combo,W/2,HIT_Y+82);
       ctx.font='400 11px -apple-system,sans-serif';ctx.shadowBlur=0;ctx.globalAlpha=.5;
       ctx.fillText('COMBO',W/2,HIT_Y+98);ctx.globalAlpha=1;
