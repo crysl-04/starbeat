@@ -44,6 +44,14 @@ input[type=range]{width:200px;vertical-align:middle}
 .card{display:flex;flex-direction:column;gap:6px;align-items:center}
 .big{font-size:64px;font-weight:800;line-height:1;background:linear-gradient(180deg,#fff,#9fe8c8);
   -webkit-background-clip:text;background-clip:text;color:transparent}
+.rb{position:relative;width:100%;max-width:300px;height:8px;border-radius:999px;background:#ffffff1a;margin-bottom:20px}
+.rb .fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:999px;
+  background:linear-gradient(90deg,#3fd8a0,#86d9ff);box-shadow:0 0 14px rgba(127,240,168,.4);
+  transition:width .7s cubic-bezier(.2,.8,.2,1)}
+.rb .tk{position:absolute;top:-3px;width:1px;height:14px;background:#ffffff33}
+.rb .lb{position:absolute;top:13px;transform:translateX(-50%);font-size:11px;font-weight:600;
+  letter-spacing:.5px;opacity:.4;white-space:nowrap}
+.rb .lb.on{opacity:1;color:#7ff0a8}
 table{border-collapse:collapse;font-size:15px}
 td{padding:5px 12px;text-align:right;font-variant-numeric:tabular-nums}
 td:first-child{text-align:left;opacity:.6}
@@ -104,7 +112,8 @@ td:first-child{text-align:left;opacity:.6}
       <b style="color:#86d9ff">EXCELLENT</b> 90ms 内 · 70 分<br>
       <b style="color:#cfe0e6">GOOD</b> 150ms 内 · 30 分（不断连击）<br>
       <b style="color:#f87171">MISS</b> 0 分 · 断连击、掉血<br>
-      打准了明星会越变越亮。
+      打准了明星会越变越亮。<br>
+      结算按准确率评级：<b>B → A → S → SS → EX</b>，颗颗 MARVELOUS 才是 EX。
     </div>
     <div class="sep"></div>
     <div class="small" style="font-size:14px;line-height:1.9">
@@ -139,6 +148,7 @@ td:first-child{text-align:left;opacity:.6}
 <div id="result" class="screen hidden">
   <h2 id="rSong">—</h2>
   <div class="big" id="grade">S</div>
+  <div class="rb" id="rankBar"><div class="fill" id="rankFill"></div></div>
   <table>
     <tr><td>MARVELOUS <span style="opacity:.7">×100</span></td><td id="cP">0</td><td>Max Combo</td><td id="cC">0</td></tr>
     <tr><td>EXCELLENT <span style="opacity:.7">×70</span></td><td id="cG">0</td><td>准确率</td><td id="cA">0%</td></tr>
@@ -515,20 +525,52 @@ function drawStatic(){draw(now());}
 
 /* ================= 结算 ================= */
 const COMMENT={
-  S:'「这段必须发出去，我要看十遍。」',
+  EX:'「一颗都没歪…这是要开唱片的水平。」',
+  SS:'「这段必须发出去，我要看十遍。」',
+  S:'「应援声都盖过来了，太稳了。」',
   A:'「全场都在喊你名字了。」',
   B:'「不错，再来一遍会更好。」',
   C:'「有点可惜，但气氛起来了。」',
   D:'「没事，我陪你重练。」',
   F:'「血量都保不住…先选 Easy 吧。」'};
+/* 结算等级：准确率驱动，A 及以上还要求血条没打空；EX 要颗颗 MARVELOUS */
+const RANKS=[{k:'EX',min:99.95,nc:1},{k:'SS',min:97,nc:1},{k:'S',min:93,nc:1},
+  {k:'A',min:88,nc:1},{k:'B',min:80}];
+const ORDER=RANKS.slice().reverse();            // B → EX，进度条从左到右
+function rankOf(acc,cleared){
+  for(const r of RANKS) if(acc>=r.min&&(!r.nc||cleared)) return r.k;
+  return acc>=72?'C':acc>=65?'D':'F';
+}
+/* 五档等距，档与档之间按准确率插值。没 cleared 时把准确率压到 A 门槛之下，条和字母口径一致 */
+function renderBar(acc,cleared){
+  const a=cleared?acc:Math.min(acc,ORDER[1].min-.01);
+  let p=0,mark='';
+  ORDER.forEach((r,i)=>{
+    if(a<r.min)return;
+    const nx=ORDER[i+1];
+    p=nx?(i+Math.min(1,(a-r.min)/(nx.min-r.min)))/(ORDER.length-1)*100:100;
+    mark=r.k;
+  });
+  document.getElementById('rankFill').style.width=p.toFixed(1)+'%';
+  document.querySelectorAll('.rb .lb').forEach(e=>e.classList.toggle('on',e.dataset.k===mark));
+}
+function buildBar(){
+  const bar=document.getElementById('rankBar');
+  ORDER.forEach((r,i)=>{
+    const x=i/(ORDER.length-1)*100;
+    bar.insertAdjacentHTML('beforeend',
+      '<span class="tk" style="left:'+x+'%"></span>'+
+      '<span class="lb" data-k="'+r.k+'" style="left:'+x+'%">'+r.k+'</span>');
+  });
+}
 function finish(){
   stopSong();
   const c=S.counts,total=c.marvelous+c.excellent+c.good+c.miss;
   const acc=total?S.weight/total*100:0;
   const cleared=S.hp>0;
-  const g=acc>=97&&cleared?'S':acc>=93&&cleared?'A':acc>=88?'B':acc>=80?'C':acc>=65?'D':'F';
+  const g=rankOf(acc,cleared);
   document.getElementById('rSong').textContent=S.base.name;
-  document.getElementById('grade').textContent=acc>=97&&cleared?'SS':g;
+  document.getElementById('grade').textContent=g;
   document.getElementById('cP').textContent=c.marvelous;
   document.getElementById('cG').textContent=c.excellent;
   document.getElementById('cB').textContent=c.good;
@@ -539,6 +581,7 @@ function finish(){
   document.getElementById('cH').textContent=Math.max(0,Math.round(S.hp))+'%';
   document.getElementById('comment').textContent=COMMENT[g];
   S.state='result';show('result');
+  renderBar(acc,cleared);
 }
 
 /* ================= UI ================= */
@@ -841,6 +884,7 @@ resize();addEventListener('resize',resize);addEventListener('orientationchange',
 defaultAvatar();
 libInit();
 loadCfg();
+buildBar();
 try{const saved=localStorage.getItem('starbeat.ava');
   if(saved){const im=new Image();im.onload=()=>{avatar=im;document.getElementById('avaName').textContent='你的明星 ✓';};im.src=saved;}
 }catch(e){}
